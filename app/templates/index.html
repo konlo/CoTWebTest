@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}" />
+  </head>
+  <body data-default-model="{{ default_model }}">
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">FastAPI Prompt Lab</p>
+          <h1>{{ app_name }}</h1>
+          <p class="subcopy">
+            IMS 번호별 JSON 번들을 기준으로 프롬프트를 편집하고, 렌더링하고,
+            바로 모델 실행까지 확인합니다.
+          </p>
+        </div>
+        <div class="hero-card">
+          <span>저장 방식</span>
+          <strong>Append-only JSONL</strong>
+          <small>`storage/prompt_history.jsonl` 에 모든 수정 이력을 누적합니다.</small>
+        </div>
+      </header>
+
+      <section class="toolbar panel">
+        <div class="toolbar-grid">
+          <label>
+            <span>IMS 번호</span>
+            <select id="imsSelect"></select>
+          </label>
+          <label>
+            <span>Model</span>
+            <input id="modelInput" type="text" placeholder="gpt-5.2" />
+          </label>
+          <label>
+            <span>Temperature</span>
+            <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0.2" />
+          </label>
+          <label>
+            <span>Max Output Tokens</span>
+            <input id="maxTokensInput" type="number" min="1" max="8192" step="1" value="1200" />
+          </label>
+          <label class="wide">
+            <span>Title</span>
+            <input id="titleInput" type="text" placeholder="저장할 프롬프트 이름" />
+          </label>
+          <label class="wide">
+            <span>Notes</span>
+            <textarea id="notesInput" rows="2" placeholder="이번 실험에서 바꾼 점을 메모하세요."></textarea>
+          </label>
+        </div>
+        <div class="toolbar-actions">
+          <button id="renderButton" type="button">렌더</button>
+          <button id="runButton" class="primary" type="button">실행</button>
+          <button id="saveButton" type="button">저장</button>
+          <button id="restoreButton" type="button">기본 프롬프트 복원</button>
+        </div>
+        <div id="statusBar" class="status-bar">초기화 중...</div>
+      </section>
+
+      <main class="workspace">
+        <section class="editor-column">
+          <article class="panel editor-panel">
+            <div class="panel-heading">
+              <h2>System Prompt</h2>
+              <span class="mono-label">Jinja2 + StrictUndefined</span>
+            </div>
+            <textarea id="systemPrompt" spellcheck="false"></textarea>
+          </article>
+          <article class="panel editor-panel">
+            <div class="panel-heading">
+              <h2>User Prompt</h2>
+              <span class="mono-label">`ims_no`, `bundle`, section variables 사용 가능</span>
+            </div>
+            <textarea id="userPrompt" spellcheck="false"></textarea>
+          </article>
+        </section>
+
+        <section class="preview-column panel">
+          <div class="tab-row">
+            <button class="tab-button active" data-tab="data" type="button">Data</button>
+            <button class="tab-button" data-tab="rendered" type="button">Rendered</button>
+            <button class="tab-button" data-tab="response" type="button">Response</button>
+            <button class="tab-button" data-tab="history" type="button">History</button>
+          </div>
+
+          <section class="tab-panel active" id="tab-data">
+            <div class="panel-heading compact">
+              <h2>Bundled JSON</h2>
+              <div id="missingSections" class="badge-row"></div>
+            </div>
+            <pre id="dataPreview" class="code-block"></pre>
+          </section>
+
+          <section class="tab-panel" id="tab-rendered">
+            <div class="stack">
+              <div>
+                <div class="panel-heading compact">
+                  <h2>Render Errors</h2>
+                </div>
+                <pre id="renderErrors" class="code-block muted"></pre>
+              </div>
+              <div>
+                <div class="panel-heading compact">
+                  <h2>Rendered System Prompt</h2>
+                </div>
+                <pre id="renderedSystem" class="code-block"></pre>
+              </div>
+              <div>
+                <div class="panel-heading compact">
+                  <h2>Rendered User Prompt</h2>
+                </div>
+                <pre id="renderedUser" class="code-block"></pre>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="tab-response">
+            <div class="stack">
+              <div class="response-stats" id="responseStats">
+                아직 실행되지 않았습니다.
+              </div>
+              <div>
+                <div class="panel-heading compact">
+                  <h2>Run Error</h2>
+                </div>
+                <pre id="runError" class="code-block muted"></pre>
+              </div>
+              <div>
+                <div class="panel-heading compact">
+                  <h2>Model Output</h2>
+                </div>
+                <pre id="modelOutput" class="code-block"></pre>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="tab-history">
+            <div class="panel-heading compact">
+              <h2>Saved Prompt History</h2>
+              <span class="mono-label">최신 저장본이 기본 로드됩니다.</span>
+            </div>
+            <div id="historyList" class="history-list"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="{{ url_for('static', path='/app.js') }}" defer></script>
+  </body>
+</html>
