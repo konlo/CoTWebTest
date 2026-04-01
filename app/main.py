@@ -55,6 +55,14 @@ def create_app(
                 detail=f"IMS {ims_no} was not found in the configured data directories.",
             ) from exc
 
+    def get_asset_version() -> int:
+        asset_paths = [
+            app_settings.static_dir / "styles.css",
+            app_settings.static_dir / "app.js",
+        ]
+        mtimes = [int(path.stat().st_mtime) for path in asset_paths if path.exists()]
+        return max(mtimes) if mtimes else 0
+
     @application.get("/", response_class=HTMLResponse)
     async def index(request: Request):
         return templates.TemplateResponse(
@@ -63,6 +71,7 @@ def create_app(
             context={
                 "app_name": app_settings.APP_NAME,
                 "default_model": app_settings.OPENAI_MODEL or "",
+                "asset_version": get_asset_version(),
             },
         )
 

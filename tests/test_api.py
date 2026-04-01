@@ -6,6 +6,15 @@ def test_list_ims(client):
     assert [item["ims_no"] for item in payload] == ["333", "444"]
 
 
+def test_index_renders_cot_comparison_ui(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "CoT Anatomy" in response.text
+    assert "3가지 비교 실행" in response.text
+    assert "Structured CoT" in response.text
+
+
 def test_get_ims_bundle(client):
     response = client.get("/api/ims/333")
 

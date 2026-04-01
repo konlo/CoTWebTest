@@ -1,8 +1,8 @@
-Analyze IMS {{ ims_no }} as if you are the incident commander preparing a technically defensible incident brief.
+기술적으로 방어 가능한 사고 브리핑을 준비하는 사고 지휘관 관점에서 IMS {{ ims_no }}를 분석하세요.
 
-Do not give a generic summary. Force yourself to reason from evidence, challenge weak assumptions, and identify what is actually knowable from the data.
+일반적인 요약을 제공하지 마세요. 반드시 근거 기반으로 추론하고, 약한 가정을 점검하며, 데이터로 실제로 알 수 있는 내용을 식별하세요.
 
-Bundled data:
+번들 데이터:
 
 `basic_info`
 {{ basic_info | to_pretty_json }}
@@ -19,54 +19,54 @@ Bundled data:
 `dump_info`
 {{ dump_info | to_pretty_json }}
 
-Your task:
-1. Extract the most operationally important facts.
-2. Identify the strongest incident signals, not just all available details.
-3. Explain what those signals imply.
-4. Detect contradictions, ambiguity, or missing evidence.
-5. Produce ranked hypotheses, not an unstructured idea list.
-6. Recommend the next actions that would most reduce uncertainty or mitigate impact.
+당신의 과제:
+1. 운영상 가장 중요한 사실을 추출하세요.
+2. 단순히 모든 세부사항이 아니라, 가장 강한 사고 신호를 식별하세요.
+3. 그 신호가 의미하는 바를 설명하세요.
+4. 모순, 모호성, 누락된 증거를 찾아내세요.
+5. 구조 없는 아이디어 목록이 아니라 우선순위가 있는 가설을 제시하세요.
+6. 불확실성 감소 또는 영향 완화에 가장 효과적인 다음 조치를 권고하세요.
 
-Be strict:
-- If a claim is not supported by the JSON, do not make it.
-- If the evidence is mixed, say that directly.
-- If one hypothesis is weak, say why it is weak.
-- If the data suggests a likely failure path, explain that path step by step.
-- If host metrics, timestamps, or notes change the interpretation, call that out explicitly.
+엄격하게 지키세요:
+- JSON으로 뒷받침되지 않는 주장은 하지 마세요.
+- 증거가 혼재되어 있으면 이를 직접적으로 밝히세요.
+- 가설 하나가 약하면 왜 약한지 설명하세요.
+- 데이터가 유력한 실패 경로를 시사하면 그 경로를 단계별로 설명하세요.
+- 호스트 지표, 타임스탬프, 노트가 해석을 바꾸면 이를 명시적으로 지적하세요.
 
-In the reasoning section, actively try to answer:
-- What is happening?
-- Why is it probably happening?
-- What evidence best supports that view?
-- What evidence could point somewhere else?
-- What is the most dangerous wrong assumption an operator might make here?
+추론 섹션에서 다음 질문에 적극적으로 답하세요:
+- 무엇이 일어나고 있는가?
+- 왜 그렇게 일어날 가능성이 높은가?
+- 어떤 증거가 그 관점을 가장 강하게 지지하는가?
+- 어떤 증거가 다른 방향을 가리킬 수 있는가?
+- 운영자가 여기서 가장 위험하게 할 수 있는 오판은 무엇인가?
 
-Return the answer in this exact structure:
+정확히 아래 구조로 답변하세요:
 
-## Situation Summary
-- 3 to 5 bullets
+## 상황 요약
+- 3~5개 불릿
 
-## Critical Evidence
-- Evidence item
+## 핵심 증거
+- 증거 항목
 
-## Reasoning Chain
-1. Step 1
-2. Step 2
-3. Step 3
+## 추론 체인
+1. 단계 1
+2. 단계 2
+3. 단계 3
 
-## Ranked Hypotheses
-1. Hypothesis
-   Confidence: High / Medium / Low
-   Supporting evidence:
-   Weakness or missing evidence:
+## 우선순위 가설
+1. 가설
+   신뢰도: 높음 / 중간 / 낮음
+   뒷받침 증거:
+   약점 또는 누락 증거:
 
-## Risks and Operational Impact
-- Risk item
+## 위험 및 운영 영향
+- 위험 항목
 
-## Highest-Value Next Actions
-1. Action
-2. Action
-3. Action
+## 가장 가치 높은 다음 조치
+1. 조치
+2. 조치
+3. 조치
 
-## Final Assessment
-- A short conclusion grounded in the evidence
+## 최종 평가
+- 증거에 기반한 짧은 결론
