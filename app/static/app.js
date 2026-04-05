@@ -244,11 +244,24 @@ function cacheElements() {
   elements.compareGrid = document.getElementById("compareGrid")
   elements.tabButtons = Array.from(document.querySelectorAll(".tab-button"))
   elements.tabPanels = Array.from(document.querySelectorAll(".tab-panel"))
+
+  elements.showcaseBaseSys = document.getElementById("showcaseBaseSys")
+  elements.showcaseBaseUser = document.getElementById("showcaseBaseUser")
+  elements.showcaseVisSys = document.getElementById("showcaseVisSys")
+  elements.showcaseVisUser = document.getElementById("showcaseVisUser")
+  elements.showcaseStructSys = document.getElementById("showcaseStructSys")
+  elements.showcaseStructUser = document.getElementById("showcaseStructUser")
 }
 
 function bindEvents() {
   elements.imsSelect.addEventListener("change", async (event) => {
     if (!event.target.value) {
+      state.currentBundle = null
+      renderBundlePreview()
+      await renderPrompts()
+      return
+    }
+    if (event.target.value === "ALL") {
       state.currentBundle = null
       renderBundlePreview()
       await renderPrompts()
@@ -311,7 +324,8 @@ function bindEvents() {
 }
 
 async function init() {
-  elements.modelInput.value = document.body.dataset.defaultModel || ""
+  const defaultModel = document.body.dataset.defaultModel || ""
+  elements.modelInput.value = defaultModel
   const [imsList, basePrompts, history] = await Promise.all([
     fetchJSON("/api/ims"),
     fetchJSON("/api/prompts/base"),
@@ -322,18 +336,22 @@ async function init() {
   state.basePrompts = basePrompts
   state.history = history
   renderHistoryList()
+  renderPromptShowcase()
 
   let initialPromptSource = {
     system_template: basePrompts.system_template,
     user_template: basePrompts.user_template,
-    model: document.body.dataset.defaultModel || "",
+    model: defaultModel,
     title: "",
     notes: "",
   }
 
   if (history.length > 0) {
     const latestRecord = await fetchJSON(`/api/prompts/history/${history[0].id}`)
-    initialPromptSource = latestRecord
+    initialPromptSource = {
+      ...latestRecord,
+      model: defaultModel || latestRecord.model || "",
+    }
     state.currentRecordId = latestRecord.id
   }
 
@@ -344,7 +362,7 @@ async function init() {
     elements.imsSelect.value = preferredIMS
   }
 
-  if (elements.imsSelect.value) {
+  if (elements.imsSelect.value && elements.imsSelect.value !== "ALL") {
     await loadBundle(elements.imsSelect.value)
   } else {
     renderBundlePreview()
@@ -361,6 +379,11 @@ async function init() {
 
 function populateIMSList(imsList) {
   elements.imsSelect.innerHTML = ""
+
+  const allOption = document.createElement("option")
+  allOption.value = "ALL"
+  allOption.textContent = "전체 (All Data)"
+  elements.imsSelect.appendChild(allOption)
 
   if (imsList.length === 0) {
     const emptyOption = document.createElement("option")
@@ -381,19 +404,39 @@ function populateIMSList(imsList) {
   })
 }
 
+function renderPromptShowcase() {
+  if (elements.showcaseBaseSys) {
+    elements.showcaseBaseSys.textContent = "[System]\n" + (COT_PRESETS.baseline?.systemTemplate || "")
+    elements.showcaseBaseUser.textContent = "[User]\n" + (COT_PRESETS.baseline?.userTemplate || "")
+    elements.showcaseVisSys.textContent = "[System]\n" + (COT_PRESETS.visible_cot?.systemTemplate || "")
+    elements.showcaseVisUser.textContent = "[User]\n" + (COT_PRESETS.visible_cot?.userTemplate || "")
+    elements.showcaseStructSys.textContent = "[System]\n" + (COT_PRESETS.structured_cot?.systemTemplate || "")
+    elements.showcaseStructUser.textContent = "[User]\n" + (COT_PRESETS.structured_cot?.userTemplate || "")
+  }
+}
+
 async function loadBundle(imsNo) {
   state.currentBundle = await fetchJSON(`/api/ims/${imsNo}`)
   renderBundlePreview()
 }
 
 function renderBundlePreview() {
+  if (elements.imsSelect.value === "ALL") {
+    elements.dataPreview.textContent = "전체 데이터 실행 모드입니다. 프리뷰는 개별 선택 시에만 제공됩니다."
+    elements.missingSections.innerHTML = ""
+    return
+  }
+
   if (!state.currentBundle) {
     elements.dataPreview.textContent = "IMS 데이터를 찾지 못했습니다."
     elements.missingSections.innerHTML = ""
     return
   }
 
-  elements.dataPreview.textContent = JSON.stringify(state.currentBundle, null, 2)
+  const displayBundle = { ...state.currentBundle }
+  delete displayBundle.refer_info
+
+  elements.dataPreview.textContent = JSON.stringify(displayBundle, null, 2)
   const missing = state.currentBundle.missing_sections || []
   elements.missingSections.innerHTML = ""
 
@@ -438,6 +481,16 @@ async function renderPrompts() {
       rendered_system: "",
       rendered_user: "",
       render_errors: { ims_no: "IMS 번호를 먼저 선택하세요." },
+    })
+    return
+  }
+
+  if (elements.imsSelect.value === "ALL") {
+    state.lastRendered = null
+    renderRenderedView({
+      rendered_system: "전체 모드에서는 시스템 프롬프트가 동적으로 렌더링되지 않습니다. (각 IMS별로 다름)",
+      rendered_user: "전체 모드에서는 사용자 프롬프트가 동적으로 렌더링되지 않습니다. (각 IMS별로 다름)",
+      render_errors: {},
     })
     return
   }
@@ -488,34 +541,78 @@ async function runPromptTest() {
   }
 
   setBusy(elements.runButton, true)
-  setStatus("모델 실행 중...", "")
 
-  const payload = {
-    ims_no: elements.imsSelect.value,
-    system_template: elements.systemPrompt.value,
-    user_template: elements.userPrompt.value,
-    model: elements.modelInput.value.trim() || null,
-    temperature: Number(elements.temperatureInput.value || "0.2"),
-    max_output_tokens: Number(elements.maxTokensInput.value || "1200"),
-  }
+  const imsOptions = Array.from(elements.imsSelect.options)
+    .map(opt => opt.value)
+    .filter(val => val && val !== "ALL")
+  const imsToRun = elements.imsSelect.value === "ALL" ? imsOptions : [elements.imsSelect.value]
+
+  setStatus(`모델 실행 중... (0 / ${imsToRun.length})`, "")
+  elements.modelOutput.textContent = ""
+  elements.responseStats.textContent = "실행 대기중..."
+  elements.runError.textContent = "에러 없음"
 
   try {
-    const response = await fetchJSON("/api/test/run", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    })
-    state.lastRendered = {
-      rendered_system: response.rendered_system,
-      rendered_user: response.rendered_user,
-      render_errors: response.render_errors || {},
-    }
-    renderRenderedView(state.lastRendered)
-    renderRunResponse(response)
+    const defaultModel = elements.modelInput.value.trim() || null
+    const temperature = Number(elements.temperatureInput.value || "0.2")
+    const maxTokens = Number(elements.maxTokensInput.value || "2048")
+    let totalStats = { in: 0, out: 0, total: 0, latency: 0, errors: 0 }
 
-    if (response.error) {
-      setStatus(`실행 실패: ${response.error}`, "error")
+    for (let i = 0; i < imsToRun.length; i++) {
+        const currentIms = imsToRun[i]
+        setStatus(`모델 실행 중... (${i + 1} / ${imsToRun.length}) - IMS ${currentIms}`, "")
+        
+        try {
+            const payload = {
+                ims_no: currentIms,
+                system_template: elements.systemPrompt.value,
+                user_template: elements.userPrompt.value,
+                model: defaultModel,
+                temperature: temperature,
+                max_output_tokens: maxTokens,
+            }
+            const response = await fetchJSON("/api/test/run", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            })
+            
+            // Render view with latest (only meaningful for last run or if single)
+            state.lastRendered = {
+                rendered_system: response.rendered_system,
+                rendered_user: response.rendered_user,
+                render_errors: response.render_errors || {},
+            }
+            renderRenderedView(state.lastRendered)
+            
+            if (response.error) {
+                elements.modelOutput.textContent += `\n\n=== IMS ${currentIms} [요청 실패] ===\n${response.error}\n`
+                totalStats.errors++
+            } else {
+                elements.modelOutput.textContent += `\n\n=== IMS ${currentIms} ===\n${response.output_text}\n`
+                saveSummaryToBackend(currentIms, elements.titleInput.value || 'Custom Run', response.output_text)
+                if (response.usage && response.usage.total_tokens) {
+                    totalStats.in += response.usage.input_tokens || 0
+                    totalStats.out += response.usage.output_tokens || 0
+                    totalStats.total += response.usage.total_tokens || 0
+                }
+                totalStats.latency += response.latency_ms || 0
+            }
+            // Auto scroll to bottom
+            elements.modelOutput.scrollTop = elements.modelOutput.scrollHeight
+        } catch(err) {
+            elements.modelOutput.textContent += `\n\n=== IMS ${currentIms} [에러] ===\n${err.message}\n`
+            totalStats.errors++
+            // Auto scroll to bottom
+            elements.modelOutput.scrollTop = elements.modelOutput.scrollHeight
+        }
+    }
+    
+    elements.responseStats.textContent = `전체 통계 | tokens: in ${totalStats.in}, out ${totalStats.out}, total ${totalStats.total} | 총 latency: ${totalStats.latency} ms`
+    if (totalStats.errors > 0) {
+        elements.runError.textContent = `${totalStats.errors}건의 에러 발생`
+        setStatus(`실행이 완료되었으나 ${totalStats.errors}개의 에러가 발생했습니다.`, "error")
     } else {
-      setStatus("모델 실행이 완료되었습니다.", "success")
+        setStatus("모델 실행이 완료되었습니다.", "success")
     }
   } finally {
     setBusy(elements.runButton, false)
@@ -664,49 +761,72 @@ async function runPresetComparison() {
 
   setBusy(elements.compareButton, true)
   setBusy(elements.applyPresetButton, true)
-  setStatus("Baseline, Visible CoT, Structured CoT를 순서대로 실행하는 중입니다...", "")
+
+  const imsOptions = Array.from(elements.imsSelect.options)
+    .map(opt => opt.value)
+    .filter(val => val && val !== "ALL")
+  const imsToRun = elements.imsSelect.value === "ALL" ? imsOptions : [elements.imsSelect.value]
 
   const sharedPayload = {
-    ims_no: elements.imsSelect.value,
     model: elements.modelInput.value.trim() || null,
     temperature: Number(elements.temperatureInput.value || "0.2"),
-    max_output_tokens: Number(elements.maxTokensInput.value || "1200"),
+    max_output_tokens: Number(elements.maxTokensInput.value || "2048"),
   }
 
   const presets = COMPARE_PRESET_KEYS.map((presetKey) => COT_PRESETS[presetKey])
-  state.compareResults = presets.map((preset) => createPendingCompareResult(preset))
+  
+  state.compareResults = []
+  presets.forEach(preset => {
+    imsToRun.forEach(ims_no => {
+      const res = createPendingCompareResult(preset)
+      res.ims_no = ims_no
+      state.compareResults.push(res)
+    })
+  });
+  
   state.compareRunAt = new Date()
   state.compareRunCompleted = 0
-  state.compareRunTotal = presets.length
+  state.compareRunTotal = state.compareResults.length
   startCompareTraceTimer()
   renderCompareResults()
 
   try {
-    await Promise.all(
-      presets.map(async (preset, index) => {
-        try {
-          const response = await fetchJSON("/api/test/run", {
-            method: "POST",
-            body: JSON.stringify({
-              ...sharedPayload,
-              system_template: preset.systemTemplate,
-              user_template: preset.userTemplate,
-            }),
-          })
+    for (let i = 0; i < imsToRun.length; i++) {
+        const currentIms = imsToRun[i]
+        for (let j = 0; j < presets.length; j++) {
+            const preset = presets[j]
+            const index = j * imsToRun.length + i // The index in state.compareResults
 
-          state.compareResults[index] = buildCompareResult(preset, response, state.compareResults[index])
-        } catch (error) {
-          state.compareResults[index] = buildCompareErrorResult(
-            preset,
-            error instanceof Error ? error.message : String(error),
-            state.compareResults[index],
-          )
-        } finally {
-          state.compareRunCompleted += 1
-          renderCompareResults()
+            setStatus(`비교 실행 중... [IMS ${currentIms} / ${preset.label}] (${state.compareRunCompleted + 1} / ${state.compareRunTotal})`, "")
+
+            try {
+              const response = await fetchJSON("/api/test/run", {
+                method: "POST",
+                body: JSON.stringify({
+                  ...sharedPayload,
+                  ims_no: currentIms,
+                  system_template: preset.systemTemplate,
+                  user_template: preset.userTemplate,
+                }),
+              })
+              const updatedResult = buildCompareResult(preset, response, state.compareResults[index])
+              updatedResult.ims_no = currentIms
+              state.compareResults[index] = updatedResult
+              saveSummaryToBackend(currentIms, preset.label, response.output_text)
+            } catch (error) {
+              const errResult = buildCompareErrorResult(
+                preset,
+                error instanceof Error ? error.message : String(error),
+                state.compareResults[index],
+              )
+              errResult.ims_no = currentIms
+              state.compareResults[index] = errResult
+            } finally {
+              state.compareRunCompleted += 1
+              renderCompareResults()
+            }
         }
-      }),
-    )
+    }
   } finally {
     stopCompareTraceTimer()
     setBusy(elements.compareButton, false)
@@ -855,7 +975,28 @@ function renderCompareResults() {
 
   renderCompareOverviewCards(state.compareResults.filter((result) => !result.pending))
 
-  state.compareResults.forEach((result) => {
+  
+  // Sort compare results so they group by ims_no
+  const sortedResults = [...state.compareResults].sort((a, b) => {
+    if (a.ims_no < b.ims_no) return -1
+    if (a.ims_no > b.ims_no) return 1
+    // within same ims_no, keep preset order
+    const aOrder = COMPARE_PRESET_KEYS.indexOf(a.key)
+    const bOrder = COMPARE_PRESET_KEYS.indexOf(b.key)
+    return aOrder - bOrder
+  })
+
+  let currentImsGroup = null;
+
+  sortedResults.forEach((result) => {
+    if (result.ims_no && result.ims_no !== currentImsGroup) {
+      currentImsGroup = result.ims_no;
+      const header = document.createElement("div")
+      header.className = "compare-group-header"
+      header.textContent = `=== IMS ${currentImsGroup} ===`
+      elements.compareGrid.appendChild(header)
+    }
+
     const card = document.createElement("article")
     card.className = `compare-card${result.error ? " error" : ""}${result.pending ? " pending" : ""}`
 
@@ -1183,15 +1324,19 @@ async function fetchJSON(url, options = {}) {
   if (!response.ok) {
     let detail = response.statusText
     try {
-      const payload = await response.json()
-      detail = payload.detail || JSON.stringify(payload)
-    } catch (_) {
-      detail = await response.text()
-    }
+      const text = await response.text()
+      try {
+        const payload = JSON.parse(text)
+        detail = payload.detail || JSON.stringify(payload)
+      } catch (_) {
+        detail = text
+      }
+    } catch (_) {}
     throw new Error(detail)
   }
 
-  return response.json()
+  const text = await response.text()
+  return text ? JSON.parse(text) : {}
 }
 
 function escapeHtml(value) {
@@ -1200,4 +1345,19 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
+}
+
+async function saveSummaryToBackend(imsNo, runType, outputText) {
+  try {
+    await fetchJSON("/api/test/save_summary", {
+      method: "POST",
+      body: JSON.stringify({
+        ims_no: imsNo,
+        run_type: runType,
+        output_text: outputText
+      })
+    })
+  } catch (err) {
+    console.error("Failed to save summary to backend:", err)
+  }
 }

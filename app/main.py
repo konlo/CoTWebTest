@@ -19,6 +19,7 @@ from app.models import (
     RunTestRequest,
     RunTestResponse,
     SavePromptRequest,
+    SaveSummaryRequest,
 )
 from app.prompt_renderer import PromptRenderer
 from app.prompt_store import PromptStore
@@ -65,12 +66,17 @@ def create_app(
 
     @application.get("/", response_class=HTMLResponse)
     async def index(request: Request):
+        default_model = (
+            app_settings.OLLAMA_MODEL
+            if app_settings.resolved_llm_provider == "ollama"
+            else app_settings.OPENAI_MODEL
+        )
         return templates.TemplateResponse(
             request=request,
             name="index.html",
             context={
                 "app_name": app_settings.APP_NAME,
-                "default_model": app_settings.OPENAI_MODEL or "",
+                "default_model": default_model or "",
                 "asset_version": get_asset_version(),
             },
         )
@@ -173,6 +179,39 @@ def create_app(
             latency_ms=run_result["latency_ms"],
             provider_request_id=run_result["provider_request_id"],
         )
+
+    @application.post("/api/test/save_summary")
+    async def save_summary(payload: SaveSummaryRequest):
+        import json
+        from datetime import datetime, timezone
+        
+        summary_dir = app_settings.DATA_ROOT / "final_summary"
+        summary_dir.mkdir(parents=True, exist_ok=True)
+        
+        file_path = summary_dir / f"SEPM1763-{payload.ims_no}_summary.json"
+        
+        data = {
+            "ims_no": payload.ims_no,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "results": {}
+        }
+        
+        if file_path.exists():
+            try:
+                with file_path.open("r", encoding="utf-8") as f:
+                    existing_data = json.load(f)
+                    if "results" in existing_data:
+                        data["results"] = existing_data["results"]
+            except Exception:
+                pass
+                
+        data["results"][payload.run_type] = payload.output_text
+        data["last_updated"] = datetime.now(timezone.utc).isoformat()
+        
+        with file_path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            
+        return {"status": "success", "file": str(file_path)}
 
     return application
 

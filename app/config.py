@@ -5,14 +5,19 @@ from typing import Dict, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
 class Settings(BaseSettings):
     APP_NAME: str = "CoT Prompt Lab"
-    DATA_ROOT: Path = Path("data")
-    PROMPTS_DIR: Path = Path("prompts")
-    STORAGE_DIR: Path = Path("storage")
-    LLM_PROVIDER: str = "openai"
+    DATA_ROOT: Path = PROJECT_ROOT / "data"
+    PROMPTS_DIR: Path = PROJECT_ROOT / "prompts"
+    STORAGE_DIR: Path = PROJECT_ROOT / "storage"
+    LLM_PROVIDER: str = "ollama"
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: Optional[str] = None
+    OLLAMA_BASE_URL: str = "http://127.0.0.1:11434/v1"
+    OLLAMA_MODEL: str = "qwen3:8b"
     GOOGLE_API_KEY: Optional[str] = None
     GOOGLE_OPENAI_BASE_URL: str = (
         "https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -30,11 +35,12 @@ class Settings(BaseSettings):
     DATA_BASIC_INFO_DIR: str = "basic_info"
     DATA_IMS_INFO_DIR: str = "ims_info"
     DATA_HOST_INFO_DIR: str = "host_info"
-    DATA_INITIAL_INTO_DIR: str = "initial_into"
+    DATA_INITIAL_INFO_DIR: str = "initial_info"
     DATA_DUMP_INFO_DIR: str = "dump_info"
+    DATA_REFER_INFO_DIR: str = "refer_info"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -65,14 +71,15 @@ class Settings(BaseSettings):
             "basic_info": self.DATA_ROOT / self.DATA_BASIC_INFO_DIR,
             "ims_info": self.DATA_ROOT / self.DATA_IMS_INFO_DIR,
             "host_info": self.DATA_ROOT / self.DATA_HOST_INFO_DIR,
-            "initial_into": self.DATA_ROOT / self.DATA_INITIAL_INTO_DIR,
+            "initial_info": self.DATA_ROOT / self.DATA_INITIAL_INFO_DIR,
             "dump_info": self.DATA_ROOT / self.DATA_DUMP_INFO_DIR,
+            "refer_info": self.DATA_ROOT / self.DATA_REFER_INFO_DIR,
         }
 
     @property
     def resolved_llm_provider(self) -> str:
         provider = (self.LLM_PROVIDER or "openai").strip().lower()
-        if provider in {"openai", "google"}:
+        if provider in {"openai", "google", "ollama"}:
             return provider
         raise ValueError(f"Unsupported LLM_PROVIDER: {self.LLM_PROVIDER}")
 

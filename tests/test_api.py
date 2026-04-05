@@ -15,6 +15,24 @@ def test_index_renders_cot_comparison_ui(client):
     assert "Structured CoT" in response.text
 
 
+def test_index_uses_ollama_default_model(sample_settings, fake_client_factory):
+    from app.main import create_app
+    from fastapi.testclient import TestClient
+
+    sample_settings.LLM_PROVIDER = "ollama"
+    sample_settings.OLLAMA_MODEL = "qwen3:8b"
+
+    app = create_app(settings=sample_settings, llm_service=None)
+    app.state.llm_service.client_factory = fake_client_factory
+    app.state.llm_service._clients = {}
+    client = TestClient(app)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'data-default-model="qwen3:8b"' in response.text
+
+
 def test_get_ims_bundle(client):
     response = client.get("/api/ims/333")
 
@@ -120,3 +138,36 @@ def test_run_endpoint_uses_mocked_google_compatibility(sample_settings, fake_cli
     assert payload["usage"]["total_tokens"] == 16
     assert payload["provider_request_id"] == "chatcmpl_test_456"
     assert fake_client_factory.instances[-1].base_url == sample_settings.GOOGLE_OPENAI_BASE_URL
+
+
+def test_run_endpoint_uses_mocked_ollama_compatibility(sample_settings, fake_client_factory):
+    from app.main import create_app
+    from fastapi.testclient import TestClient
+
+    sample_settings.LLM_PROVIDER = "ollama"
+    sample_settings.OLLAMA_BASE_URL = "http://127.0.0.1:11434/v1"
+    sample_settings.OLLAMA_MODEL = "qwen3:8b"
+
+    app = create_app(settings=sample_settings, llm_service=None)
+    app.state.llm_service.client_factory = fake_client_factory
+    app.state.llm_service._clients = {}
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/test/run",
+        json={
+            "ims_no": "333",
+            "system_template": "System {{ ims_no }}",
+            "user_template": "User {{ ims_info.title }}",
+            "temperature": 0.3,
+            "max_output_tokens": 400,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["output_text"] == "Mocked Gemini output"
+    assert payload["usage"]["total_tokens"] == 16
+    assert payload["provider_request_id"] == "chatcmpl_test_456"
+    assert fake_client_factory.instances[-1].base_url == sample_settings.OLLAMA_BASE_URL
+    assert fake_client_factory.instances[-1].api_key == "ollama"

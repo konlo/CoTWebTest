@@ -29,8 +29,9 @@ class PromptRenderer:
             "basic_info": bundle.basic_info,
             "ims_info": bundle.ims_info,
             "host_info": bundle.host_info,
-            "initial_into": bundle.initial_into,
+            "initial_info": bundle.initial_info,
             "dump_info": bundle.dump_info,
+            "refer_info": bundle.refer_info,
             "bundle": bundle_dict,
         }
 

@@ -7,8 +7,9 @@ SECTION_NAMES = (
     "basic_info",
     "ims_info",
     "host_info",
-    "initial_into",
+    "initial_info",
     "dump_info",
+    "refer_info",
 )
 
 
@@ -24,8 +25,9 @@ class IMSBundle(BaseModel):
     basic_info: Optional[Any] = None
     ims_info: Optional[Any] = None
     host_info: Optional[Any] = None
-    initial_into: Optional[Any] = None
+    initial_info: Optional[Any] = None
     dump_info: Optional[Any] = None
+    refer_info: Optional[Any] = None
     source_files: Dict[str, str] = Field(default_factory=dict)
     missing_sections: List[str] = Field(default_factory=list)
 
@@ -101,3 +103,8 @@ class RunTestResponse(BaseModel):
     provider_request_id: Optional[str] = None
     error: Optional[str] = None
     render_errors: Dict[str, str] = Field(default_factory=dict)
+
+class SaveSummaryRequest(BaseModel):
+    ims_no: str
+    run_type: str
+    output_text: str

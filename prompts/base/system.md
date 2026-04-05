@@ -24,7 +24,7 @@
    - 사고를 3~5개 불릿으로 요약하세요.
 2. 증거 추출
    - 각 관련 섹션에서 가장 중요한 사실을 나열하세요:
-     basic_info, ims_info, host_info, initial_into, dump_info
+     basic_info, ims_info, host_info, initial_info, dump_info
 3. 단계별 추론
    - 추론 과정을 번호 매겨 작성하세요.
    - 각 단계는 증거와 해석을 연결해야 합니다.

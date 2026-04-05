@@ -31,6 +31,11 @@ class LLMService:
                     api_key=self.settings.GOOGLE_API_KEY,
                     base_url=self.settings.GOOGLE_OPENAI_BASE_URL,
                 )
+            elif provider == "ollama":
+                self._clients[provider] = self.client_factory(
+                    api_key="ollama",
+                    base_url=self.settings.OLLAMA_BASE_URL,
+                )
             else:
                 self._clients[provider] = self.client_factory(
                     api_key=self.settings.OPENAI_API_KEY
@@ -61,19 +66,22 @@ class LLMService:
         max_output_tokens: int,
     ):
         provider = self.settings.resolved_llm_provider
-        selected_model = model or self.settings.OPENAI_MODEL
+        if provider == "ollama":
+            selected_model = model or self.settings.OLLAMA_MODEL
+        else:
+            selected_model = model or self.settings.OPENAI_MODEL
         if not selected_model:
-            raise RuntimeError("OPENAI_MODEL is not configured.")
+            raise RuntimeError("Model is not configured.")
         if provider == "google":
             if not self.settings.GOOGLE_API_KEY:
                 raise RuntimeError("GOOGLE_API_KEY is not configured.")
-        else:
+        elif provider == "openai":
             if not self.settings.OPENAI_API_KEY:
                 raise RuntimeError("OPENAI_API_KEY is not configured.")
 
         client = self._get_client(provider)
         started_at = perf_counter()
-        if provider == "google":
+        if provider in {"google", "ollama"}:
             response = client.chat.completions.create(
                 model=selected_model,
                 temperature=temperature,
@@ -98,10 +106,10 @@ class LLMService:
                         "content": [{"type": "input_text", "text": user_prompt}],
                     },
                 ],
-            )
+        )
         latency_ms = int((perf_counter() - started_at) * 1000)
 
-        if provider == "google":
+        if provider in {"google", "ollama"}:
             usage = None
             if getattr(response, "usage", None) is not None:
                 usage = UsageInfo(

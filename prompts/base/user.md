@@ -13,8 +13,8 @@
 `host_info`
 {{ host_info | to_pretty_json }}
 
-`initial_into`
-{{ initial_into | to_pretty_json }}
+`initial_info`
+{{ initial_info | to_pretty_json }}
 
 `dump_info`
 {{ dump_info | to_pretty_json }}

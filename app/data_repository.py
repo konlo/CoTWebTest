@@ -8,7 +8,7 @@ from app.models import IMSBundle, IMSListItem, SECTION_NAMES
 
 
 class DataRepository:
-    FILE_PATTERN = re.compile(r"^SEPM1763-(\d+)\.json$")
+    FILE_PATTERN = re.compile(r"^SEPM1763-(\d+)(?:_[a-z]+)?\.json$")
 
     def __init__(self, settings: Settings):
         self.settings = settings

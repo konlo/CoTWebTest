@@ -3,6 +3,7 @@ from app.data_repository import DataRepository
 
 def test_extract_ims_no():
     assert DataRepository.extract_ims_no("SEPM1763-333.json") == "333"
+    assert DataRepository.extract_ims_no("SEPM1763-376.dump.json") == "376"
     assert DataRepository.extract_ims_no("SEPM1763-abc.json") is None
     assert DataRepository.extract_ims_no("other-file.json") is None
 
