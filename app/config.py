@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     DATABRICKS_CATALOG: Optional[str] = None
     DATABRICKS_SCHEMA: Optional[str] = None
     HF_API_TOKEN: Optional[str] = None
+    GPT_OSS_API_KEY: Optional[str] = None
+    GPT_OSS_BASE_URL: Optional[str] = None
+    GPT_OSS_MODEL: Optional[str] = None
     DATA_BASIC_INFO_DIR: str = "basic_info"
     DATA_IMS_INFO_DIR: str = "ims_info"
     DATA_HOST_INFO_DIR: str = "host_info"
@@ -79,7 +82,7 @@ class Settings(BaseSettings):
     @property
     def resolved_llm_provider(self) -> str:
         provider = (self.LLM_PROVIDER or "openai").strip().lower()
-        if provider in {"openai", "google", "ollama"}:
+        if provider in {"openai", "google", "ollama", "gpt-oss"}:
             return provider
         raise ValueError(f"Unsupported LLM_PROVIDER: {self.LLM_PROVIDER}")
 

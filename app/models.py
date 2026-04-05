@@ -108,3 +108,24 @@ class SaveSummaryRequest(BaseModel):
     ims_no: str
     run_type: str
     output_text: str
+
+class AuditSaveRequest(BaseModel):
+    ims_no: str
+    system_template: str
+    user_template: str
+
+class AuditHistoryRecord(BaseModel):
+    id: str
+    saved_at: str
+    ims_no: str
+    system_template: str
+    user_template: str
+    refer_info: str
+    generated_summary: str
+    audit_score: float
+    audit_explanation: str = ""
+    semantic: int = 0
+    keyword: int = 0
+    structure: int = 0
+    intent: int = 0
+    latency_ms: Optional[int] = None

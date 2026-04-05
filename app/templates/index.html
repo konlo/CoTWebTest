@@ -16,52 +16,7 @@
     <div class="ambient ambient-a"></div>
     <div class="ambient ambient-b"></div>
     <div class="page-shell">
-      <section class="cot-overview">
-
-        <article class="panel preset-panel">
-          <div class="panel-heading">
-            <h2>CoT Experiment Preset</h2>
-          </div>
-          <div class="preset-grid">
-            <button class="preset-card" data-preset="baseline" type="button">
-              <strong>Baseline</strong>
-            </button>
-            <button class="preset-card" data-preset="visible_cot" type="button">
-              <strong>Visible CoT</strong>
-            </button>
-            <button class="preset-card" data-preset="structured_cot" type="button">
-              <strong>Structured CoT</strong>
-            </button>
-          </div>
-          <div id="presetDetails" class="preset-details"></div>
-          <div class="experiment-actions">
-            <button id="applyPresetButton" type="button">선택 프리셋을 편집기에 로드</button>
-            <button id="compareButton" class="primary" type="button">3가지 비교 실행</button>
-          </div>
-        </article>
-
-        <article class="panel prompt-showcase-panel" id="promptShowcase">
-          <div class="panel-heading compact">
-            <h2>프롬프트 전략 비교 뷰어</h2>
-          </div>
-          <div class="showcase-grid">
-            <div class="showcase-col">
-              <span class="example-label">Baseline</span>
-              <pre class="code-block muted showcase-pre" id="showcaseBaseSys"></pre>
-              <pre class="code-block muted showcase-pre" id="showcaseBaseUser"></pre>
-            </div>
-            <div class="showcase-col">
-              <span class="example-label">Visible CoT</span>
-              <pre class="code-block muted showcase-pre" id="showcaseVisSys"></pre>
-              <pre class="code-block muted showcase-pre" id="showcaseVisUser"></pre>
-            </div>
-            <div class="showcase-col">
-              <span class="example-label">Structured CoT</span>
-              <pre class="code-block muted showcase-pre" id="showcaseStructSys"></pre>
-              <pre class="code-block muted showcase-pre" id="showcaseStructUser"></pre>
-            </div>
-          </div>
-        </article>
+      <section class="cot-overview" style="display: none;">
       </section>
 
       <section class="toolbar panel">
@@ -127,7 +82,6 @@
             <button class="tab-button active" data-tab="data" type="button">Data</button>
             <button class="tab-button" data-tab="rendered" type="button">Rendered</button>
             <button class="tab-button" data-tab="response" type="button">Response</button>
-            <button class="tab-button" data-tab="compare" type="button">Compare</button>
             <button class="tab-button" data-tab="audit" type="button">Audit</button>
             <button class="tab-button" data-tab="history" type="button">History</button>
           </div>
@@ -183,22 +137,6 @@
             </div>
           </section>
 
-          <section class="tab-panel" id="tab-compare">
-            <div class="stack">
-              <div class="response-stats" id="compareStatus">
-                아직 비교 실험을 실행하지 않았습니다. 상단의 "3가지 비교 실행" 버튼으로 같은 입력에 대한 프롬프트 전략 차이를 확인하세요.
-              </div>
-
-              <div id="compareSignals" class="compare-signals"></div>
-              <div id="compareGrid" class="compare-grid">
-                <article class="compare-card empty">
-                  <span class="compare-label">Waiting</span>
-                  <h3>비교 결과 없음</h3>
-                  <p>아직 Baseline, Visible CoT, Structured CoT 비교가 실행되지 않았습니다.</p>
-                </article>
-              </div>
-            </div>
-          </section>
           
           <section class="tab-panel" id="tab-audit">
             <div class="stack">
@@ -210,6 +148,32 @@
                 </div>
                 <div id="auditResults" class="audit-results">
                     <!-- Results populated here -->
+                </div>
+                
+                <div class="audit-history-section" style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+                    <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--ink);">Audit History</h3>
+                    <div id="auditHistoryList" class="audit-history-list" style="display: grid; gap: 10px; border-bottom: 2px dashed var(--border); padding-bottom: 20px; margin-bottom: 20px;">
+                        <!-- Audit history items go here -->
+                    </div>
+                </div>
+
+                <div class="batch-history-section" style="margin-top: 10px;">
+                    <div class="batch-selector-header">
+                        <h3 style="font-size: 1rem; margin-bottom: 0; color: var(--ink);">Batch Audit History</h3>
+                        <button id="compareBatchesBtn" class="primary" style="padding: 4px 12px; font-size: 0.8rem; display: none;">선택 항목 비교</button>
+                    </div>
+                    <div id="batchHistoryList" class="audit-history-list" style="display: grid; gap: 10px;">
+                        <!-- Batch history items go here -->
+                    </div>
+
+                    <div id="batchComparisonUI" class="batch-comparison-container">
+                        <div class="comparison-header">
+                            <h3 style="margin: 0; font-size: 1.1rem;">배치 수행 결과 비교</h3>
+                            <button id="closeComparisonBtn" class="code-block" style="padding: 4px 8px; border: none; cursor: pointer;">✕</button>
+                        </div>
+                        <div id="comparisonStats" class="comparison-stats-row"></div>
+                        <div id="comparisonChart" class="comparison-chart-container"></div>
+                    </div>
                 </div>
             </div>
           </section>

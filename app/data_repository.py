@@ -82,8 +82,14 @@ class DataRepository:
                 payload["missing_sections"].append(section)
                 continue
 
-            with path.open("r", encoding="utf-8") as handle:
-                payload[section] = json.load(handle)
-            payload["source_files"][section] = str(path)
+            try:
+                with path.open("r", encoding="utf-8") as handle:
+                    payload[section] = json.load(handle)
+                payload["source_files"][section] = str(path)
+            except json.JSONDecodeError as e:
+                # Store the error info so we can see it in valid status
+                payload[section] = {"error": f"JSON Decode Error: {str(e)}", "path": str(path)}
+                payload["missing_sections"].append(section)
+                print(f"Error loading {path}: {e}")
 
         return IMSBundle(**payload)

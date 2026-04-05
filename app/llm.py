@@ -36,6 +36,11 @@ class LLMService:
                     api_key="ollama",
                     base_url=self.settings.OLLAMA_BASE_URL,
                 )
+            elif provider == "gpt-oss":
+                self._clients[provider] = self.client_factory(
+                    api_key=self.settings.GPT_OSS_API_KEY,
+                    base_url=self.settings.GPT_OSS_BASE_URL,
+                )
             else:
                 self._clients[provider] = self.client_factory(
                     api_key=self.settings.OPENAI_API_KEY
@@ -68,6 +73,8 @@ class LLMService:
         provider = self.settings.resolved_llm_provider
         if provider == "ollama":
             selected_model = model or self.settings.OLLAMA_MODEL
+        elif provider == "gpt-oss":
+            selected_model = model or self.settings.GPT_OSS_MODEL
         else:
             selected_model = model or self.settings.OPENAI_MODEL
         if not selected_model:
@@ -78,10 +85,13 @@ class LLMService:
         elif provider == "openai":
             if not self.settings.OPENAI_API_KEY:
                 raise RuntimeError("OPENAI_API_KEY is not configured.")
+        elif provider == "gpt-oss":
+            if not self.settings.GPT_OSS_API_KEY:
+                raise RuntimeError("GPT_OSS_API_KEY is not configured.")
 
         client = self._get_client(provider)
         started_at = perf_counter()
-        if provider in {"google", "ollama"}:
+        if provider in {"google", "ollama", "gpt-oss"}:
             response = client.chat.completions.create(
                 model=selected_model,
                 temperature=temperature,
@@ -109,7 +119,7 @@ class LLMService:
         )
         latency_ms = int((perf_counter() - started_at) * 1000)
 
-        if provider in {"google", "ollama"}:
+        if provider in {"google", "ollama", "gpt-oss"}:
             usage = None
             if getattr(response, "usage", None) is not None:
                 usage = UsageInfo(

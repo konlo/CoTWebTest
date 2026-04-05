@@ -20,9 +20,12 @@ from app.models import (
     RunTestResponse,
     SavePromptRequest,
     SaveSummaryRequest,
+    AuditSaveRequest,
+    AuditHistoryRecord,
 )
 from app.prompt_renderer import PromptRenderer
 from app.prompt_store import PromptStore
+from app.similarity_prompt import SIMILARITY_PROMPT
 
 
 def create_app(
@@ -66,11 +69,12 @@ def create_app(
 
     @application.get("/", response_class=HTMLResponse)
     async def index(request: Request):
-        default_model = (
-            app_settings.OLLAMA_MODEL
-            if app_settings.resolved_llm_provider == "ollama"
-            else app_settings.OPENAI_MODEL
-        )
+        if app_settings.resolved_llm_provider == "ollama":
+            default_model = app_settings.OLLAMA_MODEL
+        elif app_settings.resolved_llm_provider == "gpt-oss":
+            default_model = app_settings.GPT_OSS_MODEL
+        else:
+            default_model = app_settings.OPENAI_MODEL
         return templates.TemplateResponse(
             request=request,
             name="index.html",
@@ -211,8 +215,10 @@ def create_app(
         return {"status": "success", "file": str(file_path)}
 
     @application.post("/api/test/audit/{ims_no}")
-    async def audit_summary(ims_no: str):
+    async def audit_summary(ims_no: str, payload: AuditSaveRequest):
         import json
+        import datetime
+        import uuid
         
         # 1. Load IMS Bundle for refer_info
         try:
@@ -240,50 +246,248 @@ def create_app(
             
         gen_summary = generated_data.get("final_summary", "")
         if not gen_summary:
-            return {"error": "final_summary field not found in generated file"}
+            return {"error": f"final_summary field not found in generated file {file_path.name}"}
             
         # 3. Call LLM to compare
-        system_prompt = (
-            "당신은 사고 분석 품질 감사 전문가입니다. "
-            "사용자가 제공한 '기준 요약(Reference)'과 '생성된 요약(Generated)'을 비교하세요. "
-            "유사성을 1점(전혀 다름)에서 10점(완벽히 일치) 사이의 점수로 매기세요. "
-            "또한 핵심적인 차이점이나 개선점을 한두 문장으로 설명하세요. "
-            "반드시 아래 JSON 형식으로만 응답하세요: {\"score\": 점수, \"explanation\": \"설명\"}"
-        )
-        user_prompt = f"Reference: {ref_summary}\n\nGenerated: {gen_summary}"
+        user_prompt = SIMILARITY_PROMPT.replace("{TEXT_A}", ref_summary).replace("{TEXT_B}", gen_summary)
         
         try:
             result = application.state.llm_service.run_test(
-                system_prompt=system_prompt,
+                system_prompt="당신은 텍스트 유사도 평가 전문가입니다.",
                 user_prompt=user_prompt,
                 model=None, # Use default
-                temperature=0.2,
-                max_output_tokens=500
+                temperature=0,
+                max_output_tokens=1000
             )
             
             output = result["output_text"].strip()
-            # Clean possible markdown
-            if output.startswith("```"):
-                lines = output.splitlines()
-                if lines[0].startswith("```"): lines = lines[1:]
-                if lines and lines[-1].startswith("```"): lines = lines[:-1]
-                output = "\n".join(lines).strip()
             
-            try:
-                audit_data = json.loads(output)
-            except json.JSONDecodeError:
-                # Fallback for non-JSON output
-                audit_data = {"score": 0, "explanation": output}
+            # Robust JSON extraction
+            import re
+            json_match = re.search(r'\{.*\}', output, re.DOTALL)
+            audit_data = {}
+            if json_match:
+                try:
+                    audit_data = json.loads(json_match.group())
+                except json.JSONDecodeError:
+                    # Try to extract final_score if JSON is broken
+                    score_match = re.search(r'"final_score":\s*([\d\.]+)', output)
+                    score = float(score_match.group(1)) if score_match else 0
+                    audit_data = {"final_score": score, "explanation": f"JSON 파싱 실패: {output}"}
+            else:
+                score_match = re.search(r'"final_score":\s*([\d\.]+)', output)
+                if score_match:
+                    audit_data = {"final_score": float(score_match.group(1)), "explanation": output}
+                else:
+                    audit_data = {"final_score": 0, "explanation": output or "LLM 응답이 비어있습니다."}
                 
-            return {
-                "reference": ref_summary,
-                "generated": gen_summary,
-                "score": audit_data.get("score", 0),
-                "explanation": audit_data.get("explanation", ""),
-                "latency_ms": result["latency_ms"]
-            }
+            # 4. Save Audit result to History
+            history_dir = app_settings.DATA_ROOT / "audit_history"
+            history_dir.mkdir(parents=True, exist_ok=True)
+            
+            audit_id = f"audit_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+            audit_record = AuditHistoryRecord(
+                id=audit_id,
+                saved_at=datetime.datetime.now().isoformat(),
+                ims_no=ims_no,
+                system_template=payload.system_template,
+                user_template=payload.user_template,
+                refer_info=ref_summary,
+                generated_summary=gen_summary,
+                audit_score=audit_data.get("final_score", 0),
+                audit_explanation=audit_data.get("explanation", "") or "설명 없음",
+                semantic=audit_data.get("semantic", 0),
+                keyword=audit_data.get("keyword", 0),
+                structure=audit_data.get("structure", 0),
+                intent=audit_data.get("intent", 0),
+                latency_ms=result["latency_ms"]
+            )
+            
+            record_path = history_dir / f"{audit_id}.json"
+            with record_path.open("w", encoding="utf-8") as f:
+                json.dump(audit_record.dict(), f, ensure_ascii=False, indent=2)
+
+            return audit_record.dict()
+            
         except Exception as e:
             return {"error": f"LLM comparison failed: {str(e)}", "reference": ref_summary, "generated": gen_summary}
+
+    @application.get("/api/audit/history")
+    async def list_audit_history():
+        import json
+        history_dir = app_settings.DATA_ROOT / "audit_history"
+        if not history_dir.exists():
+            return []
+            
+        records = []
+        for file_path in sorted(history_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                with file_path.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    # For summary list, minimize data
+                    records.append({
+                        "id": data["id"],
+                        "saved_at": data["saved_at"],
+                        "ims_no": data["ims_no"],
+                        "score": data["audit_score"]
+                    })
+            except Exception:
+                continue
+        return records
+
+    @application.get("/api/audit/history/{record_id}")
+    async def get_audit_record(record_id: str):
+        import json
+        history_dir = app_settings.DATA_ROOT / "audit_history"
+        file_path = history_dir / f"{record_id}.json"
+        
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Audit record not found")
+            
+        with file_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+
+    @application.post("/api/test/batch_audit")
+    async def batch_audit_summary(payload: AuditSaveRequest):
+        import json
+        import datetime
+        import uuid
+        
+        ims_list = application.state.data_repository.list_ims()
+        
+        batch_id = f"batch_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        batch_results = []
+        total_score = 0
+        executed_count = 0
+        
+        summary_dir = app_settings.DATA_ROOT / "final_summary"
+        
+        for item in ims_list:
+            ims_no = item.ims_no
+            
+            # Simplified audit per IMS (shared logic from audit_summary)
+            try:
+                bundle = load_bundle_or_404(ims_no)
+                ref_summary = bundle.refer_info.get("final_summary", "") if bundle.refer_info else ""
+                
+                file_path = summary_dir / f"SEPM1763-{ims_no}_summary.json"
+                if not file_path.exists() or not ref_summary:
+                    continue
+                    
+                with file_path.open("r", encoding="utf-8") as f:
+                    generated_data = json.load(f)
+                gen_summary = generated_data.get("final_summary", "")
+                
+                user_prompt = SIMILARITY_PROMPT.replace("{TEXT_A}", ref_summary).replace("{TEXT_B}", gen_summary)
+                
+                llm_result = application.state.llm_service.run_test(
+                    system_prompt="당신은 텍스트 유사도 평가 전문가입니다.",
+                    user_prompt=user_prompt,
+                    model=None, temperature=0, max_output_tokens=1000
+                )
+                
+                import re
+                output = llm_result["output_text"].strip()
+                json_match = re.search(r'\{.*\}', output, re.DOTALL)
+                
+                audit_data = {}
+                if json_match:
+                    try:
+                        audit_data = json.loads(json_match.group())
+                    except:
+                        score_match = re.search(r'"final_score":\s*([\d\.]+)', output)
+                        score = float(score_match.group(1)) if score_match else 0
+                        audit_data = {"final_score": score, "explanation": output}
+                else:
+                    score_match = re.search(r'"final_score":\s*([\d\.]+)', output)
+                    score = float(score_match.group(1)) if score_match else 0
+                    audit_data = {"final_score": score, "explanation": output or "No response"}
+                
+                score = audit_data.get("final_score", 0)
+                batch_results.append({
+                    "ims_no": ims_no,
+                    "score": score,
+                    "explanation": audit_data.get("explanation", ""),
+                    "refer_info": ref_summary,
+                    "generated_summary": gen_summary
+                })
+                total_score += score
+                executed_count += 1
+                
+            except Exception:
+                continue
+
+        avg_score = round(total_score / executed_count, 2) if executed_count > 0 else 0
+        
+        # Save Consolidated Batch Result
+        history_dir = app_settings.DATA_ROOT / "batch_audit_history"
+        history_dir.mkdir(parents=True, exist_ok=True)
+        
+        record = {
+            "id": batch_id,
+            "saved_at": datetime.datetime.now().isoformat(),
+            "avg_score": avg_score,
+            "results": batch_results,
+            "system_template": payload.system_template,
+            "user_template": payload.user_template
+        }
+        
+        record_path = history_dir / f"{batch_id}.json"
+        with record_path.open("w", encoding="utf-8") as f:
+            json.dump(record, f, ensure_ascii=False, indent=2)
+            
+        return record
+
+    @application.post("/api/audit/batch/save")
+    async def save_batch_audit(data: dict):
+        import json
+        import datetime
+        import uuid
+        
+        batch_id = f"batch_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        data["id"] = batch_id
+        data["saved_at"] = datetime.datetime.now().isoformat()
+        
+        history_dir = app_settings.DATA_ROOT / "batch_audit_history"
+        history_dir.mkdir(parents=True, exist_ok=True)
+        
+        record_path = history_dir / f"{batch_id}.json"
+        with record_path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            
+        return data
+
+    @application.get("/api/audit/batch/list")
+    async def list_batch_history():
+        import json
+        history_dir = app_settings.DATA_ROOT / "batch_audit_history"
+        if not history_dir.exists():
+            return []
+            
+        records = []
+        for file_path in sorted(history_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                with file_path.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    records.append({
+                        "id": data["id"],
+                        "saved_at": data["saved_at"],
+                        "avg_score": data["avg_score"],
+                        "count": len(data["results"])
+                    })
+            except Exception:
+                continue
+        return records
+
+    @application.get("/api/audit/batch/{record_id}")
+    async def get_batch_record(record_id: str):
+        import json
+        history_dir = app_settings.DATA_ROOT / "batch_audit_history"
+        file_path = history_dir / f"{record_id}.json"
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Batch audit record not found")
+        with file_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
 
     return application
 
