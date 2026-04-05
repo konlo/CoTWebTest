@@ -128,6 +128,7 @@
             <button class="tab-button" data-tab="rendered" type="button">Rendered</button>
             <button class="tab-button" data-tab="response" type="button">Response</button>
             <button class="tab-button" data-tab="compare" type="button">Compare</button>
+            <button class="tab-button" data-tab="audit" type="button">Audit</button>
             <button class="tab-button" data-tab="history" type="button">History</button>
           </div>
 
@@ -198,6 +199,21 @@
               </div>
             </div>
           </section>
+          
+          <section class="tab-panel" id="tab-audit">
+            <div class="stack">
+                <div class="response-stats" id="auditStatus">
+                    아직 감사(Audit)를 실행하지 않았습니다. 하단의 "Reference 비교" 버튼을 클릭하세요.
+                </div>
+                <div class="audit-actions" style="margin-bottom: 20px;">
+                    <button id="auditButton" class="primary" type="button" style="width: 100%;">Reference 비교 수행</button>
+                </div>
+                <div id="auditResults" class="audit-results">
+                    <!-- Results populated here -->
+                </div>
+            </div>
+          </section>
+
 
           <section class="tab-panel" id="tab-history">
             <div class="panel-heading compact">

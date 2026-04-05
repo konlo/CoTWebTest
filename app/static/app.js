@@ -76,43 +76,40 @@ const COT_PRESETS = {
     key: "structured_cot",
     label: "Structured CoT",
     description: "내부적으로 단계적 판단 후 최종 구조만 남기는 실무형",
-    focus: "추론 discipline 유지, 출력은 간결",
-    observe: "CoT의 장점은 유지하면서도 결과가 보고서나 RCA 초안처럼 정돈되는지 확인할 수 있습니다.",
-    traits: ["구조화 출력", "근거와 미확인 분리", "다음 조치 중심"],
-    notes: "Structured CoT preset loaded from CoT Experiment.",
+    focus: "추론 discipline 유지, JSON 구조화 출력",
+    observe: "RCA 초안 작성을 위해 정해진 JSON 스키마에 맞춰 결과를 생성합니다.",
+    traits: ["JSON 출력", "구조화 리포트", "자동화 친화적"],
+    notes: "Structured CoT preset updated to JSON format.",
     systemTemplate: `당신은 운영 사고 분석 어시스턴트입니다.
 
 규칙:
 1. 제공된 데이터만 사용하세요.
-2. 내부적으로 단계적으로 판단하되, 최종 답변에는 구조화된 결과만 출력하세요.
-3. 사실과 미확인 사항을 섞지 마세요.
-4. 가장 가치 높은 다음 조사 조치를 우선순위로 제시하세요.
+2. 내부적으로는 단계적으로 추론하되, 최종 답변은 반드시 지정된 JSON 형식으로만 출력하세요.
+3. 마크다운 코드 블록(\`\`\`json)을 사용하세요.
 `,
-    userTemplate: `IMS {{ ims_no }}를 분석하세요.
+    userTemplate: `IMS {{ ims_no }}를 분석하여 아래 JSON 형식으로 결과를 출력하세요.
 
-내부적으로는 단계적으로 판단하되, 최종 답변에는 아래만 출력하세요:
-
-## 상황 요약
-- 2~3개 불릿
-
-## 근거
-- 가장 중요한 사실 3개
-
-## 미확인 사항
-- 아직 특정되지 않은 점 2~3개
-
-## 다음 조치
-1. 가장 우선순위가 높은 확인
-2. 두 번째 확인
-3. 세 번째 확인
-
-## 최종 평가
-- 현재 시점의 가장 방어 가능한 결론 2~4문장
+{
+  "failure_summary": "한 줄 요약",
+  "symptom": "핵심 증상",
+  "key_evidence": {
+    "host": ["호스트 증거"],
+    "device": ["장치 증거"]
+  },
+  "analysis": "상세 분석 내용",
+  "primary_domain": "host | device | joint | unknown",
+  "requires_deep_analysis": true | false,
+  "recommended_owner": ["담당 팀"],
+  "confidence": 0.9,
+  "missing_information": ["추가 필요 정보"],
+  "final_summary": "최종 결론"
+}
 
 데이터:
 {{ bundle | to_pretty_json }}
 `,
   },
+
 }
 
 const COMPARE_PRESET_KEYS = ["baseline", "visible_cot", "structured_cot"]
@@ -251,6 +248,10 @@ function cacheElements() {
   elements.showcaseVisUser = document.getElementById("showcaseVisUser")
   elements.showcaseStructSys = document.getElementById("showcaseStructSys")
   elements.showcaseStructUser = document.getElementById("showcaseStructUser")
+  
+  elements.auditButton = document.getElementById("auditButton")
+  elements.auditResults = document.getElementById("auditResults")
+  elements.auditStatus = document.getElementById("auditStatus")
 }
 
 function bindEvents() {
@@ -320,6 +321,10 @@ function bindEvents() {
 
   elements.tabButtons.forEach((button) => {
     button.addEventListener("click", () => activateTab(button.dataset.tab))
+  })
+
+  elements.auditButton.addEventListener("click", async () => {
+    await runAuditComparison()
   })
 }
 
@@ -1361,3 +1366,69 @@ async function saveSummaryToBackend(imsNo, runType, outputText) {
     console.error("Failed to save summary to backend:", err)
   }
 }
+
+async function runAuditComparison() {
+  if (!elements.imsSelect.value || elements.imsSelect.value === "ALL") {
+    setStatus("Audit을 수행하려면 개별 IMS 번호를 선택해야 합니다.", "error")
+    return
+  }
+
+  setBusy(elements.auditButton, true)
+  elements.auditStatus.textContent = "Reference와 비교 분석 중입니다..."
+  elements.auditResults.innerHTML = ""
+
+  try {
+    const response = await fetchJSON(`/api/test/audit/${elements.imsSelect.value}`, {
+      method: "POST"
+    })
+
+    if (response.error) {
+       elements.auditStatus.textContent = `오류: ${response.error}`
+       if (response.reference || response.generated) {
+           renderAuditResults(response)
+       }
+    } else {
+       elements.auditStatus.textContent = `분석 완료 (유사도 점수: ${response.score}/10)`
+       renderAuditResults(response)
+    }
+  } catch (err) {
+    elements.auditStatus.textContent = `요청 실패: ${err.message}`
+  } finally {
+    setBusy(elements.auditButton, false)
+  }
+}
+
+function renderAuditResults(data) {
+  const scoreClass = data.score >= 8 ? "success" : data.score >= 5 ? "warning" : "error"
+  
+  elements.auditResults.innerHTML = `
+    <div class="audit-card">
+      <div class="audit-score-section">
+        <div class="score-circle ${scoreClass || ''}">
+            <span class="score-value">${data.score || "?"}</span>
+            <span class="score-max">/ 10</span>
+        </div>
+        <div class="audit-explanation">
+            <strong>분석 총평</strong>
+            <p>${escapeHtml(data.explanation || "설명이 없습니다.")}</p>
+        </div>
+      </div>
+      
+      <div class="audit-comparison-grid">
+        <div class="audit-col">
+            <span class="compare-label">Reference Summary</span>
+            <pre class="code-block">${escapeHtml(data.reference || "Reference 정보가 없습니다.")}</pre>
+        </div>
+        <div class="audit-col">
+            <span class="compare-label">Generated Summary</span>
+            <pre class="code-block">${escapeHtml(data.generated || "생성된 정보가 없습니다.")}</pre>
+        </div>
+      </div>
+      
+      <div class="response-stats">
+        latency: ${data.latency_ms || "-"} ms
+      </div>
+    </div>
+  `
+}
+
