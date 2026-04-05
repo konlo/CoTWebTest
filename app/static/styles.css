@@ -1270,3 +1270,37 @@ button.active {
 
 .legend-dot.batch1 { background: #007bff; }
 .legend-dot.batch2 { background: #dc3545; }
+
+/* Navigation Bar */
+.main-nav {
+    display: flex;
+    gap: 20px;
+    padding: 15px 30px;
+    background: var(--surface-strong);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    z-index: 100;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+}
+
+.nav-link {
+    text-decoration: none;
+    color: var(--ink-soft);
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.nav-link:hover {
+    background: var(--brand-soft);
+    color: var(--brand);
+}
+
+.nav-link.active {
+    background: var(--brand);
+    color: white;
+    box-shadow: 0 4px 12px rgba(184, 92, 52, 0.25);
+}

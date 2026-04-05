@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ app_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v={{ asset_version }}" />
+  </head>
+  <body data-default-model="{{ default_model }}">
+    <nav class="main-nav">
+        <a href="/gen" class="nav-link">Summary Generation</a>
+        <a href="/compare" class="nav-link active">Evaluation & Comparison</a>
+    </nav>
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+    <div class="page-shell">
+      <section class="toolbar panel">
+        <div class="panel-heading toolbar-heading">
+          <h2>Audit & Comparison Controls</h2>
+        </div>
+        <div class="toolbar-grid">
+          <label>
+            <span>IMS 번호</span>
+            <select id="imsSelect"></select>
+          </label>
+          <label class="wide">
+            <span>Selection Note</span>
+            <div class="status-bar" id="statusBar">IMS를 선택하여 결과 비교를 시작하세요.</div>
+          </label>
+        </div>
+      </section>
+
+      <main class="workspace">
+        <section class="editor-column">
+           <article class="panel editor-panel">
+            <div class="panel-heading">
+              <h2>Similarity Evaluation Prompt</h2>
+              <button id="restoreSimilarityPromptBtn" style="padding: 2px 8px; font-size: 0.75rem;">복원</button>
+            </div>
+            <textarea id="similarityPromptEditor" spellcheck="false" style="height: calc(100vh - 400px); font-family: var(--font-mono); font-size: 0.85rem; padding: 15px; background: rgba(0,0,0,0.02); color: #000; line-height: 1.5;"></textarea>
+          </article>
+          <article class="panel editor-panel" style="margin-top: 20px;">
+            <div class="panel-heading">
+              <h2>Data Insight</h2>
+            </div>
+            <pre id="dataPreview" class="code-block" style="height: 200px;"></pre>
+          </article>
+        </section>
+
+        <section class="preview-column panel">
+          <div class="panel-heading preview-heading">
+            <h2>Evaluation Board</h2>
+          </div>
+          <div class="tab-row">
+            <button class="tab-button active" data-tab="audit" type="button">Audit & History</button>
+          </div>
+
+          <section class="tab-panel active" id="tab-audit">
+            <div class="stack">
+                <div class="response-stats" id="auditStatus">
+                    아직 감사(Audit)를 실행하지 않았습니다. 하단의 "Reference 비교" 버튼을 클릭하세요.
+                </div>
+                <div class="audit-actions" style="margin-bottom: 20px;">
+                    <button id="auditButton" class="primary" type="button" style="width: 100%;">Reference 비교 수행</button>
+                </div>
+                <div id="auditResults" class="audit-results">
+                    <!-- Results populated here -->
+                </div>
+                
+                <div class="audit-history-section" style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+                    <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--ink);">Audit History</h3>
+                    <div id="auditHistoryList" class="audit-history-list" style="display: grid; gap: 10px; border-bottom: 2px dashed var(--border); padding-bottom: 20px; margin-bottom: 20px;">
+                        <!-- Audit history items go here -->
+                    </div>
+                </div>
+
+                <div class="batch-history-section" style="margin-top: 10px;">
+                    <div class="batch-selector-header">
+                        <h3 style="font-size: 1rem; margin-bottom: 0; color: var(--ink);">Batch Audit History</h3>
+                        <button id="compareBatchesBtn" class="primary" style="padding: 4px 12px; font-size: 0.8rem; display: none;">선택 항목 비교</button>
+                    </div>
+                    <div id="batchHistoryList" class="audit-history-list" style="display: grid; gap: 10px;">
+                        <!-- Batch history items go here -->
+                    </div>
+
+                    <div id="batchComparisonUI" class="batch-comparison-container">
+                        <div class="comparison-header">
+                            <h3 style="margin: 0; font-size: 1.1rem;">배치 수행 결과 비교</h3>
+                            <button id="closeComparisonBtn" class="code-block" style="padding: 4px 8px; border: none; cursor: pointer;">✕</button>
+                        </div>
+                        <div id="comparisonStats" class="comparison-stats-row"></div>
+                        <div id="comparisonChart" class="comparison-chart-container"></div>
+                    </div>
+                </div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <!-- Hidden elements required by existing app.js logic to avoid errors -->
+    <div style="display:none">
+        <input id="modelInput" type="text" />
+        <input id="temperatureInput" type="number" />
+        <input id="maxTokensInput" type="number" />
+        <input id="titleInput" type="text" />
+        <textarea id="notesInput"></textarea>
+        <textarea id="systemPrompt"></textarea>
+        <textarea id="userPrompt"></textarea>
+        <button id="renderButton"></button>
+        <button id="runButton"></button>
+        <button id="saveButton"></button>
+        <button id="restoreButton"></button>
+        <div id="missingSections"></div>
+        <pre id="renderErrors"></pre>
+        <pre id="renderedSystem"></pre>
+        <pre id="renderedUser"></pre>
+        <div id="responseStats"></div>
+        <pre id="runError"></pre>
+        <pre id="modelOutput"></pre>
+        <div id="historyList"></div>
+        <div class="tab-button" data-tab="data"></div>
+        <div class="tab-button" data-tab="rendered"></div>
+        <div class="tab-button" data-tab="response"></div>
+        <div class="tab-button" data-tab="history"></div>
+        <div class="tab-panel" id="tab-data"></div>
+        <div class="tab-panel" id="tab-rendered"></div>
+        <div class="tab-panel" id="tab-response"></div>
+        <div class="tab-panel" id="tab-history"></div>
+    </div>
+
+    <script src="{{ url_for('static', path='/app.js') }}?v={{ asset_version }}" defer></script>
+  </body>
+</html>

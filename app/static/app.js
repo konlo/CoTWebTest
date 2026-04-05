@@ -21,114 +21,150 @@ document.addEventListener("DOMContentLoaded", () => {
 })
 
 function cacheElements() {
-  elements.imsSelect = document.getElementById("imsSelect")
-  elements.modelInput = document.getElementById("modelInput")
-  elements.temperatureInput = document.getElementById("temperatureInput")
-  elements.maxTokensInput = document.getElementById("maxTokensInput")
-  elements.titleInput = document.getElementById("titleInput")
-  elements.notesInput = document.getElementById("notesInput")
-  elements.systemPrompt = document.getElementById("systemPrompt")
-  elements.userPrompt = document.getElementById("userPrompt")
-  elements.renderButton = document.getElementById("renderButton")
-  elements.runButton = document.getElementById("runButton")
-  elements.saveButton = document.getElementById("saveButton")
-  elements.restoreButton = document.getElementById("restoreButton")
-  elements.statusBar = document.getElementById("statusBar")
-  elements.dataPreview = document.getElementById("dataPreview")
-  elements.missingSections = document.getElementById("missingSections")
-  elements.renderErrors = document.getElementById("renderErrors")
-  elements.renderedSystem = document.getElementById("renderedSystem")
-  elements.renderedUser = document.getElementById("renderedUser")
-  elements.responseStats = document.getElementById("responseStats")
-  elements.runError = document.getElementById("runError")
-  elements.modelOutput = document.getElementById("modelOutput")
-  elements.historyList = document.getElementById("historyList")
+  const get = (id) => document.getElementById(id)
+  
+  elements.imsSelect = get("imsSelect")
+  elements.modelInput = get("modelInput")
+  elements.temperatureInput = get("temperatureInput")
+  elements.maxTokensInput = get("maxTokensInput")
+  elements.titleInput = get("titleInput")
+  elements.notesInput = get("notesInput")
+  elements.systemPrompt = get("systemPrompt")
+  elements.userPrompt = get("userPrompt")
+  elements.renderButton = get("renderButton")
+  elements.runButton = get("runButton")
+  elements.saveButton = get("saveButton")
+  elements.restoreButton = get("restoreButton")
+  elements.statusBar = get("statusBar")
+  elements.dataPreview = get("dataPreview")
+  elements.missingSections = get("missingSections")
+  elements.renderErrors = get("renderErrors")
+  elements.renderedSystem = get("renderedSystem")
+  elements.renderedUser = get("renderedUser")
+  elements.responseStats = get("responseStats")
+  elements.runError = get("runError")
+  elements.modelOutput = get("modelOutput")
+  elements.historyList = get("historyList")
   elements.tabButtons = Array.from(document.querySelectorAll(".tab-button"))
   elements.tabPanels = Array.from(document.querySelectorAll(".tab-panel"))
 
-  elements.auditButton = document.getElementById("auditButton")
-  elements.auditResults = document.getElementById("auditResults")
-  elements.auditStatus = document.getElementById("auditStatus")
-  elements.auditHistoryList = document.getElementById("auditHistoryList")
-  elements.batchHistoryList = document.getElementById("batchHistoryList")
-  elements.compareBatchesBtn = document.getElementById("compareBatchesBtn")
-  elements.batchComparisonUI = document.getElementById("batchComparisonUI")
-  elements.comparisonStats = document.getElementById("comparisonStats")
-  elements.comparisonChart = document.getElementById("comparisonChart")
-  elements.closeComparisonBtn = document.getElementById("closeComparisonBtn")
+  elements.auditButton = get("auditButton")
+  elements.auditResults = get("auditResults")
+  elements.auditStatus = get("auditStatus")
+  elements.auditHistoryList = get("auditHistoryList")
+  elements.batchHistoryList = get("batchHistoryList")
+  elements.compareBatchesBtn = get("compareBatchesBtn")
+  elements.batchComparisonUI = get("batchComparisonUI")
+  elements.comparisonStats = get("comparisonStats")
+  elements.comparisonChart = get("comparisonChart")
+  elements.closeComparisonBtn = get("closeComparisonBtn")
+  
+  // New elements for Compare page
+  elements.saveSummaryBtn = get("saveSummaryBtn")
+  elements.similarityPromptEditor = get("similarityPromptEditor")
+  elements.restoreSimilarityPromptBtn = get("restoreSimilarityPromptBtn")
 }
 
 function bindEvents() {
-  elements.imsSelect.addEventListener("change", async (event) => {
-    if (!event.target.value) {
-      state.currentBundle = null
-      renderBundlePreview()
-      await renderPrompts()
-      return
-    }
-    if (event.target.value === "ALL") {
-      state.currentBundle = null
-      renderBundlePreview()
-      await renderPrompts()
-      return
-    }
-    await loadBundle(event.target.value)
-    scheduleRender(50)
-  })
+  if (elements.imsSelect) {
+      elements.imsSelect.addEventListener("change", async (event) => {
+        if (!event.target.value) {
+          state.currentBundle = null
+          renderBundlePreview()
+          await renderPrompts()
+          return
+        }
+        if (event.target.value === "ALL") {
+          state.currentBundle = null
+          renderBundlePreview()
+          await renderPrompts()
+          return
+        }
+        await loadBundle(event.target.value)
+        scheduleRender(50)
+      })
+  }
 
-  ;[elements.systemPrompt, elements.userPrompt].forEach((element) => {
-    element.addEventListener("input", () => scheduleRender(250))
-  })
+  if (elements.systemPrompt) {
+      elements.systemPrompt.addEventListener("input", () => scheduleRender(250))
+  }
+  if (elements.userPrompt) {
+      elements.userPrompt.addEventListener("input", () => scheduleRender(250))
+  }
 
-  elements.renderButton.addEventListener("click", async () => {
-    await renderPrompts()
-  })
+  if (elements.renderButton) {
+      elements.renderButton.addEventListener("click", () => renderPrompts())
+  }
 
-  elements.runButton.addEventListener("click", async () => {
-    await runPromptTest()
-  })
+  if (elements.runButton) {
+      elements.runButton.addEventListener("click", () => runPromptTest())
+  }
 
-  elements.saveButton.addEventListener("click", async () => {
-    await savePrompts()
-  })
+  if (elements.saveButton) {
+      elements.saveButton.addEventListener("click", () => savePrompts())
+  }
 
-  elements.restoreButton.addEventListener("click", async () => {
-    if (!state.basePrompts) {
-      return
-    }
-    applyPromptSource({
-      system_template: state.basePrompts.system_template,
-      user_template: state.basePrompts.user_template,
-      model: document.body.dataset.defaultModel || "",
-      notes: "",
-      title: "",
-    })
-    state.currentRecordId = null
-    renderHistoryList()
-    setStatus("기본 프롬프트로 복원했습니다.", "success")
-    scheduleRender(0)
-  })
+  if (elements.restoreButton) {
+      elements.restoreButton.addEventListener("click", () => {
+        if (!state.basePrompts) return
+        applyPromptSource({
+          system_template: state.basePrompts.system_template,
+          user_template: state.basePrompts.user_template,
+          model: document.body.dataset.defaultModel || "",
+          notes: "",
+          title: "",
+        })
+        state.currentRecordId = null
+        renderHistoryList()
+        setStatus("기본 프롬프트로 복원했습니다.", "success")
+        scheduleRender(0)
+      })
+  }
 
   elements.tabButtons.forEach((button) => {
     button.addEventListener("click", () => activateTab(button.dataset.tab))
   })
 
-  elements.auditButton.addEventListener("click", async () => {
-    await runAuditComparison()
-  })
+  if (elements.auditButton) {
+      elements.auditButton.addEventListener("click", () => runAuditComparison())
+  }
 
-  elements.compareBatchesBtn.addEventListener("click", () => {
-    compareBatches()
-  })
+  if (elements.compareBatchesBtn) {
+      elements.compareBatchesBtn.addEventListener("click", () => compareBatches())
+  }
 
-  elements.closeComparisonBtn.addEventListener("click", () => {
-    elements.batchComparisonUI.classList.remove("active")
-  })
+  if (elements.closeComparisonBtn) {
+      elements.closeComparisonBtn.addEventListener("click", () => elements.batchComparisonUI.classList.remove("active"))
+  }
+  
+  if (elements.saveSummaryBtn) {
+      elements.saveSummaryBtn.addEventListener("click", () => saveSummaryManually())
+  }
+  
+  if (elements.restoreSimilarityPromptBtn) {
+      elements.restoreSimilarityPromptBtn.addEventListener("click", async () => {
+          const res = await fetchJSON("/api/audit/similarity_prompt")
+          if (res.prompt) {
+              elements.similarityPromptEditor.value = res.prompt
+              setStatus("유사도 평가 프롬프트를 기본값으로 복원했습니다.", "success")
+          }
+      })
+  }
 }
 
 async function init() {
   const defaultModel = document.body.dataset.defaultModel || ""
-  elements.modelInput.value = defaultModel
+  if (elements.modelInput) elements.modelInput.value = defaultModel
+  
+  if (elements.similarityPromptEditor) {
+      try {
+          const res = await fetchJSON("/api/audit/similarity_prompt")
+          if (res.prompt) elements.similarityPromptEditor.value = res.prompt
+      } catch (e) {
+          console.error("Failed to load similarity prompt", e)
+      }
+  }
+
   const [imsList, basePrompts, history] = await Promise.all([
     fetchJSON("/api/ims"),
     fetchJSON("/api/prompts/base"),
@@ -598,8 +634,9 @@ async function runAuditComparison() {
       method: "POST",
       body: JSON.stringify({
           ims_no: elements.imsSelect.value,
-          system_template: elements.systemPrompt.value,
-          user_template: elements.userPrompt.value
+          system_template: elements.systemPrompt ? elements.systemPrompt.value : "",
+          user_template: elements.userPrompt ? elements.userPrompt.value : "",
+          similarity_prompt: elements.similarityPromptEditor ? elements.similarityPromptEditor.value : null
       })
     })
 
@@ -647,8 +684,9 @@ async function runBatchAudit() {
                 method: "POST",
                 body: JSON.stringify({
                     ims_no: item.ims_no,
-                    system_template: elements.systemPrompt.value,
-                    user_template: elements.userPrompt.value
+                    system_template: elements.systemPrompt ? elements.systemPrompt.value : "",
+                    user_template: elements.userPrompt ? elements.userPrompt.value : "",
+                    similarity_prompt: elements.similarityPromptEditor ? elements.similarityPromptEditor.value : null
                 })
             })
             
@@ -689,7 +727,7 @@ async function runBatchAudit() {
     })
 
     elements.auditStatus.textContent = `배치 감사 완료: 평균 유사도 ${avgScore}/10`
-    renderBatchAuditResults(savedRecord)
+    renderBatchAuditResults({ ...batchData, id: savedRecord.id })
     loadBatchAuditHistory()
 
   } catch (err) {
@@ -848,6 +886,10 @@ async function loadBatchAuditRecord(id) {
 }
 
 function renderBatchAuditResults(data) {
+  if (!data || !data.results) {
+      elements.auditResults.innerHTML = '<p class="status-bar">결과 데이터를 표시할 수 없습니다.</p>'
+      return
+  }
   const chartHtml = data.results.map(res => {
       const height = res.score * 10 // 1-10 -> 10-100%
       return `
@@ -950,8 +992,9 @@ function renderAuditHistory(history) {
   history.forEach((record) => {
     const item = document.createElement("div")
     item.className = "history-item audit-history-item"
+    const score = record.audit_score !== undefined ? record.audit_score : record.score
     const savedAt = new Date(record.saved_at).toLocaleString()
-    const scoreClass = record.score >= 8 ? 'success' : record.score >= 5 ? 'warning' : 'error'
+    const scoreClass = score >= 8 ? 'success' : score >= 5 ? 'warning' : 'error'
     
     item.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
@@ -960,7 +1003,7 @@ function renderAuditHistory(history) {
            <small style="color: var(--ink-faint); font-size: 0.75rem;">${savedAt}</small>
         </div>
         <div class="score-pill ${scoreClass}" style="padding: 4px 10px; border-radius: 99px; font-weight: 700; font-size: 0.85rem;">
-           ${record.score}/10
+           ${score}/10
         </div>
       </div>
     `

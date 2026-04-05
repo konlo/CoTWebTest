@@ -113,6 +113,7 @@ class AuditSaveRequest(BaseModel):
     ims_no: str
     system_template: str
     user_template: str
+    similarity_prompt: Optional[str] = None
 
 class AuditHistoryRecord(BaseModel):
     id: str
