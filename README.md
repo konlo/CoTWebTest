@@ -42,10 +42,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -e ".[dev]"
 cp .env.example .env
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 0.0.0.0 --port 5000
 ```
 
-브라우저에서 [http://127.0.0.1:8000](http://127.0.0.1:8000) 으로 접속합니다.
+브라우저에서 `http://<로컬 IP>:5000` 또는 [http://127.0.0.1:5000](http://127.0.0.1:5000) 으로 접속합니다.
 
 Ollama를 쓸 경우 `.env` 예시(기본값):
 

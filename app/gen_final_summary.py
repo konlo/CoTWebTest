@@ -104,7 +104,7 @@ async def run_test(payload: RunTestRequest, request: Request):
 async def save_summary_handler(payload: SaveSummaryRequest, request: Request):
     summary_dir = request.app.state.settings.DATA_ROOT / "final_summary"
     summary_dir.mkdir(parents=True, exist_ok=True)
-    file_path = summary_dir / f"SEPM1763-{payload.ims_no}_summary.json"
+    file_path = summary_dir / f"final_summary_SEPM1763-{payload.ims_no}.json"
     
     clean_output = payload.output_text.strip()
     if clean_output.startswith("```"):
@@ -116,7 +116,7 @@ async def save_summary_handler(payload: SaveSummaryRequest, request: Request):
     try:
         summary_data = json.loads(clean_output)
     except:
-        summary_data = {"final_summary": clean_output, "run_type": payload.run_type}
+        summary_data = {"summary": clean_output, "run_type": payload.run_type}
         
     with file_path.open("w", encoding="utf-8") as f:
         json.dump(summary_data, f, ensure_ascii=False, indent=2)

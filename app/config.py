@@ -32,9 +32,11 @@ class Settings(BaseSettings):
     DATABRICKS_CATALOG: Optional[str] = None
     DATABRICKS_SCHEMA: Optional[str] = None
     HF_API_TOKEN: Optional[str] = None
-    GPT_OSS_API_KEY: Optional[str] = None
-    GPT_OSS_BASE_URL: Optional[str] = None
-    GPT_OSS_MODEL: Optional[str] = None
+    GPT_CREDENTIAL_KEY: Optional[str] = None
+    GPT_BASE_URL: Optional[str] = None
+    GPT_OSS_API_KEY: Optional[str] = ""
+    GPT_OSS_BASE_URL: Optional[str] = ""
+    GPT_OSS_MODEL: Optional[str] = "openai/gpt-oss-120b"
     DATA_BASIC_INFO_DIR: str = "basic_info"
     DATA_IMS_INFO_DIR: str = "ims_info"
     DATA_HOST_INFO_DIR: str = "host_info"

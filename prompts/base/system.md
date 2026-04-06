@@ -33,7 +33,7 @@
   "recommended_owner": ["분석을 주도해야 할 팀 (예: Host, Device)"],
   "confidence": 0.0~1.0 사이의 수치 (분석의 확신도),
   "missing_information": ["근본 원인 파악을 위해 추가로 필요한 로그나 정보"],
-  "final_summary": "현재 데이터를 기반으로 한 최종 결론 및 조치 권고"
+  "summary": "현재 데이터를 기반으로 한 최종 결론 및 조치 권고"
 }
 
 

@@ -56,15 +56,15 @@ async def audit_summary(ims_no: str, payload: AuditSaveRequest, request: Request
         
     ref_summary = ""
     if isinstance(refer_info, dict):
-        ref_summary = refer_info.get("final_summary", "")
+        ref_summary = refer_info.get("summary") or refer_info.get("final_summary", "")
     else:
         ref_summary = str(refer_info)
         
     if not ref_summary:
-        return {"error": "final_summary field not found in refer_info"}
+        return {"error": "'summary' or 'final_summary' field not found in refer_info"}
         
     summary_dir = app_settings.DATA_ROOT / "final_summary"
-    file_path = summary_dir / f"SEPM1763-{ims_no}_summary.json"
+    file_path = summary_dir / f"final_summary_SEPM1763-{ims_no}.json"
     
     if not file_path.exists():
         return {"error": f"Generated summary file {file_path.name} not found"}
@@ -72,9 +72,9 @@ async def audit_summary(ims_no: str, payload: AuditSaveRequest, request: Request
     with file_path.open("r", encoding="utf-8") as f:
         generated_data = json.load(f)
         
-    gen_summary = generated_data.get("final_summary", "")
+    gen_summary = generated_data.get("summary") or generated_data.get("final_summary", "")
     if not gen_summary:
-        return {"error": "final_summary field not found in generated record"}
+        return {"error": "Neither 'summary' nor 'final_summary' field found in generated record"}
         
     prompt_template = payload.similarity_prompt or SIMILARITY_PROMPT
     user_prompt = prompt_template.replace("{TEXT_A}", ref_summary).replace("{TEXT_B}", gen_summary)
@@ -155,6 +155,13 @@ async def audit_summary(ims_no: str, payload: AuditSaveRequest, request: Request
     audit_history_dir = app_settings.DATA_ROOT / "audit_history"
     audit_history_dir.mkdir(parents=True, exist_ok=True)
     with open(audit_history_dir / f"{record_id}.json", "w", encoding="utf-8") as f:
+        json.dump(record.model_dump(), f, ensure_ascii=False, indent=2)
+        
+    # Additional save to similarity_info directory as requested
+    similarity_info_dir = app_settings.DATA_ROOT / "similarity_info"
+    similarity_info_dir.mkdir(parents=True, exist_ok=True)
+    sim_filename = f"SEPM1763-{ims_no}_similarity.json"
+    with open(similarity_info_dir / sim_filename, "w", encoding="utf-8") as f:
         json.dump(record.model_dump(), f, ensure_ascii=False, indent=2)
         
     return record

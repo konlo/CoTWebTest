@@ -1,5 +1,7 @@
 from time import perf_counter
 from typing import Callable, Dict, Optional
+import uuid
+import os
 
 from app.config import Settings
 from app.models import UsageInfo
@@ -37,9 +39,22 @@ class LLMService:
                     base_url=self.settings.OLLAMA_BASE_URL,
                 )
             elif provider == "gpt-oss":
+                # Apply custom initialization for gpt-oss as requested
+                # Try new settings names first, fallback to older ones
+                credential_key = self.settings.GPT_CREDENTIAL_KEY or self.settings.GPT_OSS_API_KEY or ""
+                api_base_url = self.settings.GPT_BASE_URL or self.settings.GPT_OSS_BASE_URL or ""
+                
                 self._clients[provider] = self.client_factory(
-                    api_key=self.settings.GPT_OSS_API_KEY,
-                    base_url=self.settings.GPT_OSS_BASE_URL,
+                    api_key="api_key", # Placeholder as client requires an api_key
+                    base_url=api_base_url,
+                    default_headers={
+                        "x-dep-ticket": credential_key,
+                        "Send-System-Name": "test_api_1",
+                        "User-Id": "konlo.na",
+                        "User-Type": "AD ID",
+                        "Prompt-Msg-Id": str(uuid.uuid4()),
+                        "Completion-Msg-Id": str(uuid.uuid4()),
+                    }
                 )
             else:
                 self._clients[provider] = self.client_factory(
@@ -86,8 +101,8 @@ class LLMService:
             if not self.settings.OPENAI_API_KEY:
                 raise RuntimeError("OPENAI_API_KEY is not configured.")
         elif provider == "gpt-oss":
-            if not self.settings.GPT_OSS_API_KEY:
-                raise RuntimeError("GPT_OSS_API_KEY is not configured.")
+            if not self.settings.GPT_CREDENTIAL_KEY and not self.settings.GPT_OSS_API_KEY:
+                raise RuntimeError("GPT_OSS authentication (credential key) is not configured.")
 
         client = self._get_client(provider)
         started_at = perf_counter()
